@@ -6,15 +6,14 @@ import (
 	"os"
 	"time"
 
-	"api_insights/internal/repository"
-	"api_insights/internal/service"
-	httptransport "api_insights/internal/transport/http"
+	"api_insights/internal/controller"
+	"api_insights/internal/model"
 )
 
 func main() {
-	store := repository.NewMockStore()
-	insightService := service.NewInsightService(store)
-	handler := httptransport.NewHandler(insightService)
+	store := model.NewMockStore()
+	insightModel := model.NewInsightModel(store)
+	insightController := controller.NewInsightController(insightModel)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -23,7 +22,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           handler.Routes(),
+		Handler:           insightController.Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

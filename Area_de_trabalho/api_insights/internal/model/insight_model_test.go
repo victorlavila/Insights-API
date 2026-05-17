@@ -1,19 +1,16 @@
-package service
+package model
 
 import (
 	"context"
 	"testing"
-
-	"api_insights/internal/domain"
-	"api_insights/internal/repository"
 )
 
 func TestNormalizeData(t *testing.T) {
 	data := normalizeData(
-		[]domain.Sale{{ID: "s1", Product: " Plano Pro ", Amount: -10, Channel: " WEB "}},
-		[]domain.Suggestion{{ID: "sg1", Category: " Produto ", Text: "  muitos   filtros  "}},
-		[]domain.Complaint{{ID: "c1", Severity: 8, Text: " erro   crítico "}},
-		[]domain.UserCapture{{UserID: "u1", Source: " Ads ", Segment: " smb ", Consent: true}},
+		[]Sale{{ID: "s1", Product: " Plano Pro ", Amount: -10, Channel: " WEB "}},
+		[]Suggestion{{ID: "sg1", Category: " Produto ", Text: "  muitos   filtros  "}},
+		[]Complaint{{ID: "c1", Severity: 8, Text: " erro   crítico "}},
+		[]UserCapture{{UserID: "u1", Source: " Ads ", Segment: " smb ", Consent: true}},
 	)
 
 	if got := data.sales[0].Product; got != "plano pro" {
@@ -37,9 +34,9 @@ func TestNormalizeData(t *testing.T) {
 }
 
 func TestGenerateReport(t *testing.T) {
-	service := NewInsightService(repository.NewMockStore())
+	model := NewInsightModel(NewMockStore())
 
-	report, err := service.GenerateReport(context.Background())
+	report, err := model.GenerateReport(context.Background())
 	if err != nil {
 		t.Fatalf("GenerateReport retornou erro: %v", err)
 	}

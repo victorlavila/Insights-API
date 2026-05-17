@@ -5,10 +5,9 @@ API Go simples para gerar um relatório de insights a partir de mocks de vendas,
 ## Arquitetura
 
 - `cmd/api`: composição da aplicação e servidor HTTP.
-- `internal/domain`: modelos de domínio e DTO do relatório.
-- `internal/repository`: mock simulando banco de dados, protegido com `sync.RWMutex` e cópias defensivas.
-- `internal/service`: normalização, tratamento de dados, geração de insights e uso de goroutines.
-- `internal/transport/http`: handlers HTTP.
+- `internal/model`: entidades, repositório mock, normalização e geração do relatório.
+- `internal/controller`: rotas HTTP e orquestração das requisições.
+- `internal/view`: renderização das respostas JSON.
 
 ### Diagrama Arquitetural
 
@@ -16,26 +15,25 @@ API Go simples para gerar um relatório de insights a partir de mocks de vendas,
 graph TD
 	subgraph cmd/api
 		A[main.go] -->|Cria| B[NewMockStore]
-		A -->|Cria| C[NewInsightService]
-		A -->|Cria| D[NewHandler]
+		A -->|Cria| C[NewInsightModel]
+		A -->|Cria| D[NewInsightController]
 		D -->|Expõe| E[Routes]
 	end
-	subgraph internal/repository
+	subgraph Model
 		B[NewMockStore] --> F[MockStore]
 		F -->|Implementa| G[InsightRepository]
-	end
-	subgraph internal/service
-		C[NewInsightService] --> H[InsightService]
+		C[NewInsightModel] --> H[InsightModel]
 		H -->|Usa| G
 		H -->|Gera| I[GenerateReport]
+		H -.-> J[Entidades e DTOs]
 	end
-	subgraph internal/domain
-		G -.->|Usa| J[Modelos: Sale, Suggestion, Complaint, UserCapture, InsightReport]
-	end
-	subgraph internal/transport/http
-		D[NewHandler] --> E[Routes]
-		E -->|Define| K[Handlers: /health, /insights/report]
+	subgraph Controller
+		D[NewInsightController] --> E[Routes]
+		E -->|Define| K[GET /health e GET /insights/report]
 		K -->|Chama| I
+	end
+	subgraph View
+		K -->|Renderiza| L[JSON e Error]
 	end
 ```
 

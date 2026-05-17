@@ -1,4 +1,4 @@
-package service
+package model
 
 import (
 	"context"
@@ -6,36 +6,33 @@ import (
 	"sort"
 	"sync"
 	"time"
-
-	"api_insights/internal/domain"
-	"api_insights/internal/repository"
 )
 
-type InsightService struct {
-	repo repository.InsightRepository
+type InsightModel struct {
+	repo InsightRepository
 }
 
-func NewInsightService(repo repository.InsightRepository) *InsightService {
-	return &InsightService{repo: repo}
+func NewInsightModel(repo InsightRepository) *InsightModel {
+	return &InsightModel{repo: repo}
 }
 
-func (s *InsightService) GenerateReport(ctx context.Context) (domain.InsightReport, error) {
-	data, err := s.loadAndNormalize(ctx)
+func (m *InsightModel) GenerateReport(ctx context.Context) (InsightReport, error) {
+	data, err := m.loadAndNormalize(ctx)
 	if err != nil {
-		return domain.InsightReport{}, err
+		return InsightReport{}, err
 	}
 
 	var wg sync.WaitGroup
 	salesCh := make(chan salesInsight, 1)
 	suggestionsCh := make(chan map[string]int, 1)
-	complaintsCh := make(chan domain.ComplaintInsight, 1)
-	usersCh := make(chan domain.UserInsight, 1)
+	complaintsCh := make(chan ComplaintInsight, 1)
+	usersCh := make(chan UserInsight, 1)
 
 	wg.Add(4)
 	go run(&wg, salesCh, func() salesInsight { return summarizeSales(data.sales) })
 	go run(&wg, suggestionsCh, func() map[string]int { return summarizeSuggestions(data.suggestions) })
-	go run(&wg, complaintsCh, func() domain.ComplaintInsight { return summarizeComplaints(data.complaints) })
-	go run(&wg, usersCh, func() domain.UserInsight { return summarizeUsers(data.userCaptures) })
+	go run(&wg, complaintsCh, func() ComplaintInsight { return summarizeComplaints(data.complaints) })
+	go run(&wg, usersCh, func() UserInsight { return summarizeUsers(data.userCaptures) })
 
 	wg.Wait()
 	close(salesCh)
@@ -48,7 +45,7 @@ func (s *InsightService) GenerateReport(ctx context.Context) (domain.InsightRepo
 	complaints := <-complaintsCh
 	users := <-usersCh
 
-	return domain.InsightReport{
+	return InsightReport{
 		GeneratedAt:         time.Now().UTC(),
 		TotalRevenue:        sales.totalRevenue,
 		TotalSales:          sales.totalSales,
@@ -63,32 +60,32 @@ func (s *InsightService) GenerateReport(ctx context.Context) (domain.InsightRepo
 	}, nil
 }
 
-func (s *InsightService) loadAndNormalize(ctx context.Context) (normalizedData, error) {
+func (m *InsightModel) loadAndNormalize(ctx context.Context) (normalizedData, error) {
 	type result[T any] struct {
 		items []T
 		err   error
 	}
 
-	salesCh := make(chan result[domain.Sale], 1)
-	suggestionsCh := make(chan result[domain.Suggestion], 1)
-	complaintsCh := make(chan result[domain.Complaint], 1)
-	usersCh := make(chan result[domain.UserCapture], 1)
+	salesCh := make(chan result[Sale], 1)
+	suggestionsCh := make(chan result[Suggestion], 1)
+	complaintsCh := make(chan result[Complaint], 1)
+	usersCh := make(chan result[UserCapture], 1)
 
 	go func() {
-		items, err := s.repo.ListSales(ctx)
-		salesCh <- result[domain.Sale]{items: items, err: err}
+		items, err := m.repo.ListSales(ctx)
+		salesCh <- result[Sale]{items: items, err: err}
 	}()
 	go func() {
-		items, err := s.repo.ListSuggestions(ctx)
-		suggestionsCh <- result[domain.Suggestion]{items: items, err: err}
+		items, err := m.repo.ListSuggestions(ctx)
+		suggestionsCh <- result[Suggestion]{items: items, err: err}
 	}()
 	go func() {
-		items, err := s.repo.ListComplaints(ctx)
-		complaintsCh <- result[domain.Complaint]{items: items, err: err}
+		items, err := m.repo.ListComplaints(ctx)
+		complaintsCh <- result[Complaint]{items: items, err: err}
 	}()
 	go func() {
-		items, err := s.repo.ListUserCaptures(ctx)
-		usersCh <- result[domain.UserCapture]{items: items, err: err}
+		items, err := m.repo.ListUserCaptures(ctx)
+		usersCh <- result[UserCapture]{items: items, err: err}
 	}()
 
 	salesResult := <-salesCh
@@ -104,16 +101,16 @@ func (s *InsightService) loadAndNormalize(ctx context.Context) (normalizedData, 
 }
 
 func normalizeData(
-	sales []domain.Sale,
-	suggestions []domain.Suggestion,
-	complaints []domain.Complaint,
-	userCaptures []domain.UserCapture,
+	sales []Sale,
+	suggestions []Suggestion,
+	complaints []Complaint,
+	userCaptures []UserCapture,
 ) normalizedData {
 	data := normalizedData{
-		sales:        make([]domain.Sale, 0, len(sales)),
-		suggestions:  make([]domain.Suggestion, 0, len(suggestions)),
-		complaints:   make([]domain.Complaint, 0, len(complaints)),
-		userCaptures: make([]domain.UserCapture, 0, len(userCaptures)),
+		sales:        make([]Sale, 0, len(sales)),
+		suggestions:  make([]Suggestion, 0, len(suggestions)),
+		complaints:   make([]Complaint, 0, len(complaints)),
+		userCaptures: make([]UserCapture, 0, len(userCaptures)),
 	}
 
 	for _, sale := range sales {
@@ -150,11 +147,11 @@ type salesInsight struct {
 	totalSales       int
 	averageTicket    float64
 	revenueByChannel map[string]float64
-	topProducts      []domain.ProductInsight
+	topProducts      []ProductInsight
 }
 
-func summarizeSales(sales []domain.Sale) salesInsight {
-	byProduct := make(map[string]domain.ProductInsight)
+func summarizeSales(sales []Sale) salesInsight {
+	byProduct := make(map[string]ProductInsight)
 	byChannel := make(map[string]float64)
 	var total float64
 
@@ -169,7 +166,7 @@ func summarizeSales(sales []domain.Sale) salesInsight {
 		byProduct[sale.Product] = product
 	}
 
-	topProducts := make([]domain.ProductInsight, 0, len(byProduct))
+	topProducts := make([]ProductInsight, 0, len(byProduct))
 	for _, product := range byProduct {
 		topProducts = append(topProducts, product)
 	}
@@ -194,7 +191,7 @@ func summarizeSales(sales []domain.Sale) salesInsight {
 	}
 }
 
-func summarizeSuggestions(suggestions []domain.Suggestion) map[string]int {
+func summarizeSuggestions(suggestions []Suggestion) map[string]int {
 	themes := make(map[string]int)
 	for _, suggestion := range suggestions {
 		themes[suggestion.Category]++
@@ -202,7 +199,7 @@ func summarizeSuggestions(suggestions []domain.Suggestion) map[string]int {
 	return themes
 }
 
-func summarizeComplaints(complaints []domain.Complaint) domain.ComplaintInsight {
+func summarizeComplaints(complaints []Complaint) ComplaintInsight {
 	var totalSeverity int
 	var highSeverity int
 	for _, complaint := range complaints {
@@ -217,14 +214,14 @@ func summarizeComplaints(complaints []domain.Complaint) domain.ComplaintInsight 
 		average = float64(totalSeverity) / float64(len(complaints))
 	}
 
-	return domain.ComplaintInsight{
+	return ComplaintInsight{
 		Total:           len(complaints),
 		AverageSeverity: roundMoney(average),
 		HighSeverity:    highSeverity,
 	}
 }
 
-func summarizeUsers(captures []domain.UserCapture) domain.UserInsight {
+func summarizeUsers(captures []UserCapture) UserInsight {
 	bySource := make(map[string]int)
 	bySegment := make(map[string]int)
 	totalWithConsent := 0
@@ -238,7 +235,7 @@ func summarizeUsers(captures []domain.UserCapture) domain.UserInsight {
 		bySegment[capture.Segment]++
 	}
 
-	return domain.UserInsight{
+	return UserInsight{
 		TotalWithConsent: totalWithConsent,
 		BySource:         bySource,
 		BySegment:        bySegment,
@@ -248,8 +245,8 @@ func summarizeUsers(captures []domain.UserCapture) domain.UserInsight {
 func recommendActions(
 	sales salesInsight,
 	suggestions map[string]int,
-	complaints domain.ComplaintInsight,
-	users domain.UserInsight,
+	complaints ComplaintInsight,
+	users UserInsight,
 ) []string {
 	actions := make([]string, 0, 4)
 
@@ -276,7 +273,7 @@ func roundMoneyMap(values map[string]float64) map[string]float64 {
 	return rounded
 }
 
-func roundProductRevenue(products []domain.ProductInsight) []domain.ProductInsight {
+func roundProductRevenue(products []ProductInsight) []ProductInsight {
 	for i := range products {
 		products[i].Revenue = roundMoney(products[i].Revenue)
 	}

@@ -1,21 +1,19 @@
-package service
+package model
 
 import (
 	"strings"
 	"unicode"
-
-	"api_insights/internal/domain"
 )
 
 type normalizedData struct {
-	sales        []domain.Sale
-	suggestions  []domain.Suggestion
-	complaints   []domain.Complaint
-	userCaptures []domain.UserCapture
+	sales        []Sale
+	suggestions  []Suggestion
+	complaints   []Complaint
+	userCaptures []UserCapture
 	issues       []string
 }
 
-func normalizeSale(sale domain.Sale) (domain.Sale, string) {
+func normalizeSale(sale Sale) (Sale, string) {
 	sale.Product = normalizeLabel(sale.Product)
 	sale.Channel = normalizeLabel(sale.Channel)
 	if sale.Amount < 0 {
@@ -25,13 +23,13 @@ func normalizeSale(sale domain.Sale) (domain.Sale, string) {
 	return sale, ""
 }
 
-func normalizeSuggestion(suggestion domain.Suggestion) domain.Suggestion {
+func normalizeSuggestion(suggestion Suggestion) Suggestion {
 	suggestion.Text = normalizeText(suggestion.Text)
 	suggestion.Category = normalizeLabel(suggestion.Category)
 	return suggestion
 }
 
-func normalizeComplaint(complaint domain.Complaint) (domain.Complaint, string) {
+func normalizeComplaint(complaint Complaint) (Complaint, string) {
 	complaint.Text = normalizeText(complaint.Text)
 	if complaint.Severity < 1 {
 		complaint.Severity = 1
@@ -44,7 +42,7 @@ func normalizeComplaint(complaint domain.Complaint) (domain.Complaint, string) {
 	return complaint, ""
 }
 
-func normalizeUserCapture(capture domain.UserCapture) domain.UserCapture {
+func normalizeUserCapture(capture UserCapture) UserCapture {
 	capture.Source = normalizeLabel(capture.Source)
 	capture.Segment = strings.ToUpper(strings.TrimSpace(capture.Segment))
 	return capture
